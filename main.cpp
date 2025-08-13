@@ -297,25 +297,30 @@ void *ProccessT1(void *message)
     printf("Process T1 execute\n");
     sem_post(&sem1);
     sem_post(&sem1);
+    return NULL;
 }
 void *ProccessT2(void *message)
 {
     sem_wait(&sem1);
     printf("Process T2 execute\n");
     sem_post(&sem2);
+    return NULL;
 }
 void *ProccessT3(void *message)
 {
     sem_wait(&sem1);
     printf("Process T3 execute\n");
     sem_post(&sem3);
+    return NULL;
 }
 void *ProccessT4(void *message)
 {
     sem_wait(&sem2);
     sem_wait(&sem3);
     printf("Process T4 execute\n");
+    return NULL;
 }
+
 int main()
 {
     pthread_t idthreadT1, idthreadT2,idthreadT3,idthreadT4;
@@ -351,7 +356,6 @@ int main()
         &ProccessT4,
         NULL
     );
-
     while (1){}
     return  0;
 }
