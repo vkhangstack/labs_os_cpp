@@ -227,57 +227,131 @@
 
 
 // 3. Semaphores
+// #include <pthread.h>
+// #include <stdio.h>
+// #include <semaphore.h>
+//
+// int products = 0, sells = 0; // Bien toan cuc, duoc chia se giua A va B
+// sem_t stock; // Khai bao semaphore la toan cuc
+// sem_t product_limit;
+//
+// void *Produce(void *message)
+// {
+//     while(1)
+//     {
+//         sem_wait(&product_limit);
+//         products++;
+//         printf("Produce | products = %d\n", products);
+//         sem_post(&stock); // Thao tac signal semaphore
+//     }
+// }
+//
+// void *Consume(void *message)
+// {
+//     while(1)
+//     {
+//         sem_wait(&stock); // Thao tac wait semaphore
+//         sells++;
+//         printf("Consume | sells = %d\n", sells);
+//         sem_post(&product_limit);
+//     }
+// }
+//
+// int main()
+// {
+//     pthread_t idthreadA, idthreadB;
+//     sem_init(&stock, 0, products - sells); // Gia tri khoi tao cua stock la products - sells
+//     sem_init(&product_limit, 0,67); // Giới hạn product sản xuất bằng 4 số cuối mssv
+//
+//     pthread_create(
+//         &idthreadA,
+//         NULL,
+//         &Produce,
+//         NULL
+//     );
+//
+//     pthread_create(
+//         &idthreadB,
+//         NULL,
+//         &Consume,
+//         NULL
+//     );
+//
+//     while(1){} // Giữ cho tiểu trình main tồn tại để quan sát idthreadA và idthreadB
+//
+//     return 0;
+// }
+
+
+// lab01.2
 #include <pthread.h>
 #include <stdio.h>
 #include <semaphore.h>
 
-int products = 0, sells = 0; // Bien toan cuc, duoc chia se giua A va B
-sem_t stock; // Khai bao semaphore la toan cuc
-sem_t product_limit;
+sem_t sem1;
+sem_t sem2;
+sem_t sem3;
 
-void *Produce(void *message)
+void *ProccessT1(void *message)
 {
-    while(1)
-    {
-        sem_wait(&product_limit);
-        products++;
-        printf("Produce | products = %d\n", products);
-        sem_post(&stock); // Thao tac signal semaphore
-    }
+    printf("Process T1 execute\n");
+    sem_post(&sem1);
+    sem_post(&sem1);
 }
-
-void *Consume(void *message)
+void *ProccessT2(void *message)
 {
-    while(1)
-    {
-        sem_wait(&stock); // Thao tac wait semaphore
-        sells++;
-        printf("Consume | sells = %d\n", sells);
-        sem_post(&product_limit);
-    }
+    sem_wait(&sem1);
+    printf("Process T2 execute\n");
+    sem_post(&sem2);
 }
-
+void *ProccessT3(void *message)
+{
+    sem_wait(&sem1);
+    printf("Process T3 execute\n");
+    sem_post(&sem3);
+}
+void *ProccessT4(void *message)
+{
+    sem_wait(&sem2);
+    sem_wait(&sem3);
+    printf("Process T4 execute\n");
+}
 int main()
 {
-    pthread_t idthreadA, idthreadB;
-    sem_init(&stock, 0, products - sells); // Gia tri khoi tao cua stock la products - sells
-    sem_init(&product_limit, 0,67); // Giới hạn product sản xuất bằng 4 số cuối mssv
+    pthread_t idthreadT1, idthreadT2,idthreadT3,idthreadT4;
+    sem_init(&sem1, 0,0);
+    sem_init(&sem2, 0,0);
+    sem_init(&sem3, 0,0);
 
     pthread_create(
-        &idthreadA,
+        &idthreadT1,
         NULL,
-        &Produce,
+        &ProccessT1,
         NULL
     );
 
     pthread_create(
-        &idthreadB,
+        &idthreadT2,
         NULL,
-        &Consume,
+        &ProccessT2,
         NULL
     );
 
-    while(1){} // Giữ cho tiểu trình main tồn tại để quan sát idthreadA và idthreadB
 
-    return 0;
+    pthread_create(
+        &idthreadT3,
+        NULL,
+        &ProccessT3,
+        NULL
+    );
+
+    pthread_create(
+        &idthreadT4,
+        NULL,
+        &ProccessT4,
+        NULL
+    );
+
+    while (1){}
+    return  0;
 }
