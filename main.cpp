@@ -233,11 +233,13 @@
 
 int products = 0, sells = 0; // Bien toan cuc, duoc chia se giua A va B
 sem_t stock; // Khai bao semaphore la toan cuc
+sem_t product_limit;
 
 void *Produce(void *message)
 {
     while(1)
     {
+        sem_wait(&product_limit);
         products++;
         printf("Produce | products = %d\n", products);
         sem_post(&stock); // Thao tac signal semaphore
@@ -251,6 +253,7 @@ void *Consume(void *message)
         sem_wait(&stock); // Thao tac wait semaphore
         sells++;
         printf("Consume | sells = %d\n", sells);
+        sem_post(&product_limit);
     }
 }
 
@@ -258,6 +261,7 @@ int main()
 {
     pthread_t idthreadA, idthreadB;
     sem_init(&stock, 0, products - sells); // Gia tri khoi tao cua stock la products - sells
+    sem_init(&product_limit, 0,67); // Giới hạn product sản xuất bằng 4 số cuối mssv
 
     pthread_create(
         &idthreadA,
