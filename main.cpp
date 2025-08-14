@@ -284,78 +284,297 @@
 
 
 // lab01.2
-#include <pthread.h>
+// #include <pthread.h>
+// #include <stdio.h>
+// #include <semaphore.h>
+//
+// sem_t sem1;
+// sem_t sem2;
+// sem_t sem3;
+//
+// void *ProccessT1(void *message)
+// {
+//     printf("Process T1 execute\n");
+//     sem_post(&sem1);
+//     sem_post(&sem1);
+//     return NULL;
+// }
+// void *ProccessT2(void *message)
+// {
+//     sem_wait(&sem1);
+//     printf("Process T2 execute\n");
+//     sem_post(&sem2);
+//     return NULL;
+// }
+// void *ProccessT3(void *message)
+// {
+//     sem_wait(&sem1);
+//     printf("Process T3 execute\n");
+//     sem_post(&sem3);
+//     return NULL;
+// }
+// void *ProccessT4(void *message)
+// {
+//     sem_wait(&sem2);
+//     sem_wait(&sem3);
+//     printf("Process T4 execute\n");
+//     return NULL;
+// }
+//
+// int main()
+// {
+//     pthread_t idthreadT1, idthreadT2,idthreadT3,idthreadT4;
+//     sem_init(&sem1, 0,0);
+//     sem_init(&sem2, 0,0);
+//     sem_init(&sem3, 0,0);
+//
+//     pthread_create(
+//         &idthreadT1,
+//         NULL,
+//         &ProccessT1,
+//         NULL
+//     );
+//
+//     pthread_create(
+//         &idthreadT2,
+//         NULL,
+//         &ProccessT2,
+//         NULL
+//     );
+//
+//
+//     pthread_create(
+//         &idthreadT3,
+//         NULL,
+//         &ProccessT3,
+//         NULL
+//     );
+//
+//     pthread_create(
+//         &idthreadT4,
+//         NULL,
+//         &ProccessT4,
+//         NULL
+//     );
+//     while (1){}
+//     return  0;
+// }
+
+
+// lab01.3
 #include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
 #include <semaphore.h>
+#include <unistd.h>
+#include <time.h>
 
-sem_t sem1;
-sem_t sem2;
-sem_t sem3;
+#define MAX_SIZE 10
+#define NUM_OPERATIONS 20
 
-void *ProccessT1(void *message)
-{
-    printf("Process T1 execute\n");
-    sem_post(&sem1);
-    sem_post(&sem1);
+// Mảng toàn cục và các biến đếm
+int a[MAX_SIZE];
+int count = 0;  // Số phần tử hiện tại trong mảng
+
+// Mutex để bảo vệ critical section
+pthread_mutex_t mutex;
+
+// Semaphore để đồng bộ hóa
+sem_t empty;  // Đếm số slot trống
+sem_t full;   // Đếm số phần tử có sẵn
+
+// Hàm thêm phần tử vào mảng (Producer)
+void* producer(void* arg) {
+    int thread_id = *((int*)arg);
+
+    while (1){
+        // Chờ có slot trống
+        sem_wait(&empty);
+
+        // Vào critical section
+        pthread_mutex_lock(&mutex);
+
+        // Sinh số ngẫu nhiên và thêm vào mảng
+        int random_num = rand() % 100;
+        a[count] = random_num;
+        count++;
+
+        printf("Producer %d: Thêm %d vào mảng. Số phần tử: %d\n",
+               thread_id, random_num, count);
+
+        // Ra khỏi critical section
+        pthread_mutex_unlock(&mutex);
+
+        // Báo hiệu có thêm một phần tử
+        sem_post(&full);
+    }
     return NULL;
 }
-void *ProccessT2(void *message)
-{
-    sem_wait(&sem1);
-    printf("Process T2 execute\n");
-    sem_post(&sem2);
+
+// Hàm lấy phần tử từ mảng (Consumer)
+void* consumer(void* arg) {
+    int thread_id = *((int*)arg);
+
+    while (1) {
+        // Chờ có phần tử để lấy
+        sem_wait(&full);
+
+        // Vào critical section
+        pthread_mutex_lock(&mutex);
+
+        if (count > 0) {
+            // Lấy phần tử cuối cùng (có thể thay đổi logic này)
+            int removed_value = a[count - 1];
+            count--;
+
+            printf("Consumer %d: Lấy ra %d từ mảng. Số phần tử: %d\n",
+                   thread_id, removed_value, count);
+        } else {
+            printf("Consumer %d: Nothing in array a\n", thread_id);
+        }
+
+        // Ra khỏi critical section
+        pthread_mutex_unlock(&mutex);
+
+        // Báo hiệu có thêm một slot trống
+        sem_post(&empty);
+
+    }
+
     return NULL;
 }
-void *ProccessT3(void *message)
-{
-    sem_wait(&sem1);
-    printf("Process T3 execute\n");
-    sem_post(&sem3);
+
+
+void* unsafe_producer(void* arg) {
+  while (1){
+        // RACE CONDITION: Không có protection
+        if (count < MAX_SIZE) {
+            int random_num = rand() % 100;
+            a[count] = random_num;
+            count++; // LỖI: Có thể bị ghi đè bởi thread khác
+            printf("Producer: Thêm %d, count = %d\n", random_num, count);
+        }
+    }
     return NULL;
 }
-void *ProccessT4(void *message)
-{
-    sem_wait(&sem2);
-    sem_wait(&sem3);
-    printf("Process T4 execute\n");
+
+void* unsafe_consumer(void* arg) {
+   while (1){
+        // RACE CONDITION: Không có protection
+        if (count > 0) {
+            int value = a[count - 1];
+            count--; // LỖI: Có thể bị ghi đè bởi thread khác
+            printf("Consumer: Lấy %d, count = %d\n", value, count);
+        } else {
+            printf("Consumer: Nothing in array a\n");
+        }
+    }
     return NULL;
 }
 
-int main()
-{
-    pthread_t idthreadT1, idthreadT2,idthreadT3,idthreadT4;
-    sem_init(&sem1, 0,0);
-    sem_init(&sem2, 0,0);
-    sem_init(&sem3, 0,0);
+int main() {
+    // Khởi tạo seed cho random
+    srand(time(NULL));
 
-    pthread_create(
-        &idthreadT1,
-        NULL,
-        &ProccessT1,
-        NULL
-    );
+    // Khởi tạo mutex
+    pthread_mutex_init(&mutex, NULL);
 
-    pthread_create(
-        &idthreadT2,
-        NULL,
-        &ProccessT2,
-        NULL
-    );
+    // Khởi tạo semaphore
+    sem_init(&empty, 0, 10);  // Ban đầu có MAX_SIZE slot trống
+    sem_init(&full, 0, 0);          // Ban đầu có 0 phần tử
 
+    // Tạo thread
+    pthread_t producer_thread, consumer_thread;
+    int producer_id = 1, consumer_id = 1;
 
-    pthread_create(
-        &idthreadT3,
-        NULL,
-        &ProccessT3,
-        NULL
-    );
+    printf("=== CHƯƠNG TRÌNH VỚI ĐỒNG BỘ HÓA ===\n");
+    printf("Mảng có thể chứa tối đa %d phần tử\n\n", MAX_SIZE);
 
-    pthread_create(
-        &idthreadT4,
-        NULL,
-        &ProccessT4,
-        NULL
-    );
+    // Tạo và chạy các thread
+    pthread_create(&producer_thread, NULL, unsafe_producer, &producer_id);
+    pthread_create(&consumer_thread, NULL, unsafe_consumer, &consumer_id);
+
+    // printf("\nChương trình kết thúc. Số phần tử còn lại: %d\n", count);
     while (1){}
-    return  0;
+    // Chờ các thread kết thúc
+    // pthread_join(producer_thread, NULL);
+    // pthread_join(consumer_thread, NULL);
+    //
+    // // Dọn dẹp
+    // pthread_mutex_destroy(&mutex);
+    // sem_destroy(&empty);
+    // sem_destroy(&full);
+
+
+    return 0;
 }
+
+/*
+=== PHIÊN BAN KHÔNG ĐỒNG BỘ HÓA (CÓ LỖI) ===
+
+void* unsafe_producer(void* arg) {
+    for (int i = 0; i < 10; i++) {
+        // RACE CONDITION: Không có protection
+        if (count < MAX_SIZE) {
+            int random_num = rand() % 100;
+            a[count] = random_num;
+            count++; // LỖI: Có thể bị ghi đè bởi thread khác
+            printf("Producer: Thêm %d, count = %d\n", random_num, count);
+        }
+        usleep(100000);
+    }
+    return NULL;
+}
+
+void* unsafe_consumer(void* arg) {
+    for (int i = 0; i < 10; i++) {
+        // RACE CONDITION: Không có protection
+        if (count > 0) {
+            int value = a[count - 1];
+            count--; // LỖI: Có thể bị ghi đè bởi thread khác
+            printf("Consumer: Lấy %d, count = %d\n", value, count);
+        } else {
+            printf("Consumer: Nothing in array a\n");
+        }
+        usleep(150000);
+    }
+    return NULL;
+}
+
+CÁC LỖI KHI CHƯA ĐỒNG BỘ HÓA:
+
+1. RACE CONDITION trên biến 'count':
+   - Hai thread có thể đọc/ghi cùng lúc
+   - Kết quả không đoán trước được
+   - Có thể dẫn đến count sai
+
+2. BUFFER OVERFLOW/UNDERFLOW:
+   - Producer có thể thêm quá MAX_SIZE phần tử
+   - Consumer có thể lấy từ mảng rỗng
+
+3. DATA CORRUPTION:
+   - Truy cập đồng thời vào mảng a[]
+   - Có thể đọc dữ liệu đang được ghi
+
+4. INCONSISTENT STATE:
+   - count có thể không phản ánh đúng số phần tử thực tế
+   - Dẫn đến logic sai
+
+GIẢI PHÁP ĐỒNG BỘ HÓA:
+
+1. MUTEX: Bảo vệ critical section (count, a[])
+2. SEMAPHORE:
+   - empty: Đếm số slot trống
+   - full: Đếm số phần tử có sẵn
+3. Đảm bảo atomic operations
+*/
+
+/*
+CÁCH BIÊN DỊCH VÀ CHẠY:
+
+gcc -o thread_program thread_program.c -lpthread
+./thread_program
+
+HOẶC với debug:
+gcc -g -Wall -o thread_program thread_program.c -lpthread
+*/
